@@ -58,8 +58,8 @@ def get_block_chunk_filename(start: int, end: int):
     return block_chunk_filename
 
 
-def get_account_root_filename(last_block_number=None):
-    prefix = ('.' if last_block_number is None else str(last_block_number)).zfill(ORDER_OF_ACCOUNT_ROOT_FILE)
+def get_blockchain_state_filename(block_number):
+    prefix = ('.' if block_number == -1 else str(block_number)).zfill(ORDER_OF_ACCOUNT_ROOT_FILE)
     return ACCOUNT_ROOT_FILE_FILENAME_TEMPLATE.format(last_block_number=prefix)
 
 
@@ -96,7 +96,7 @@ class FileBlockchain(BlockchainBase):
         self.base_directory = base_directory
 
         self.block_storage = PathOptimizedFileSystemStorage(base_path=block_directory, **(blocks_storage_kwargs or {}))
-        self.account_root_files_storage = PathOptimizedFileSystemStorage(
+        self.blockchain_states_storage = PathOptimizedFileSystemStorage(
             base_path=account_root_files_directory, **(account_root_files_storage_kwargs or {})
         )
 
@@ -128,17 +128,15 @@ class FileBlockchain(BlockchainBase):
 
     @ensure_locked(lock_attr='file_lock', exception=EXPECTED_LOCK_EXCEPTION)
     def persist_blockchain_state(self, blockchain_state: BlockchainState):
-        storage = self.account_root_files_storage
-        last_block_number = blockchain_state.last_block_number
-
-        file_path = get_account_root_filename(last_block_number)
+        storage = self.blockchain_states_storage
+        file_path = get_blockchain_state_filename(blockchain_state.get_last_block_number())
         storage.save(file_path, blockchain_state.to_messagepack(), is_final=True)
 
     def _load_account_root_file(self, file_path):
         cache = self.account_root_files_cache
         account_root_file = cache.get(file_path)
         if account_root_file is None:
-            storage = self.account_root_files_storage
+            storage = self.blockchain_states_storage
             assert storage.is_finalized(file_path)
             account_root_file = BlockchainState.from_messagepack(storage.load(file_path))
             cache[file_path] = account_root_file
@@ -148,7 +146,7 @@ class FileBlockchain(BlockchainBase):
     def _yield_blockchain_states(self, direction) -> Generator[BlockchainState, None, None]:
         assert direction in (1, -1)
 
-        storage = self.account_root_files_storage
+        storage = self.blockchain_states_storage
         for file_path in storage.list_directory(sort_direction=direction):
             yield self._load_account_root_file(file_path)
 
@@ -159,7 +157,7 @@ class FileBlockchain(BlockchainBase):
         yield from self._yield_blockchain_states(-1)
 
     def get_blockchain_states_count(self) -> int:
-        storage = self.account_root_files_storage
+        storage = self.blockchain_states_storage
         return ilen(storage.list_directory())
 
     # Blocks methods

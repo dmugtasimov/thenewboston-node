@@ -87,7 +87,7 @@ def get_context():
             'block_chunk_template': file_blockchain.BLOCK_CHUNK_FILENAME_TEMPLATE,
             'account_root_file_template': file_blockchain.ACCOUNT_ROOT_FILE_FILENAME_TEMPLATE,
             'get_block_chunk_filename': file_blockchain.get_block_chunk_filename,
-            'get_account_root_filename': file_blockchain.get_account_root_filename,
+            'get_account_root_filename': file_blockchain.get_blockchain_state_filename,
             'compressors': file_system.COMPRESSION_FUNCTIONS.keys(),
             'file_optimization_max_depth': path_optimized_file_system.DEFAULT_MAX_DEPTH,
             'make_optimized_file_path': path_optimized_file_system.make_optimized_file_path,

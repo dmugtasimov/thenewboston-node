@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Optional, Type, TypeVar
 
 from thenewboston_node.business_logic.validators import (
-    validate_gte_value, validate_is_none, validate_not_none, validate_type
+    validate_gt_value, validate_gte_value, validate_is_none, validate_not_none, validate_type
 )
 from thenewboston_node.core.logging import validates
 from thenewboston_node.core.utils.cryptography import hash_normalized_dict
@@ -33,26 +33,10 @@ class BlockchainState(MessagpackCompactableMixin, NormalizableMixin, BaseDatacla
     )
     """Account number to account state map"""
 
-    last_block_number: Optional[int] = field(default=None, metadata={'example_value': 5})
-    """Number of the last block included into the blockchain state (optional for blockchain genesis state)"""
-
-    # TODO(dmu) MEDIUM: Do we really need last_block_identifier?
-    last_block_identifier: Optional[hexstr] = field(
-        default=None, metadata={'example_value': 'b0dabd367eb1ed670ab9ce4cef9d45106332f211c7b50ddd60dec4ae62711fb7'}
-    )
-    """Identifier of the last block included into the blockchain state (optional for blockchain genesis state)"""
-
-    # TODO(dmu) HIGH: Do we really need `last_block_timestamp`?
-    last_block_timestamp: Optional[datetime] = field(
-        default=None, metadata={'example_value': datetime(2021, 5, 19, 10, 34, 5, 54106)}
-    )
-    """Timestamp of the last block included into the blockchain state (optional for blockchain genesis state)"""
-
+    next_block_number: Optional[int] = field(default=None, metadata={'example_value': 5})
     next_block_identifier: Optional[hexstr] = field(
         default=None, metadata={'example_value': 'dc6671e1132cbb7ecbc190bf145b5a5cfb139ca502b5d66aafef4d096f4d2709'}
     )
-    """Identifier of the next block to be added on top of the blockchain state
-    (optional for blockchain genesis state, blockchain state hash is used as next block identifier in this case)"""
 
     @classmethod
     def create_from_account_root_file(cls: Type[T], account_root_file_dict) -> T:
@@ -119,9 +103,11 @@ class BlockchainState(MessagpackCompactableMixin, NormalizableMixin, BaseDatacla
     def get_node(self, account: hexstr):
         return self.get_account_state_attribute_value(account, 'node')
 
+    def get_last_block_number(self) -> int:
+        return self.get_next_block_number() - 1
+
     def get_next_block_number(self) -> int:
-        last_block_number = self.last_block_number
-        return 0 if last_block_number is None else last_block_number + 1
+        return self.next_block_number or 0
 
     def get_next_block_identifier(self) -> hexstr:
         next_block_identifier = self.next_block_identifier
@@ -134,10 +120,7 @@ class BlockchainState(MessagpackCompactableMixin, NormalizableMixin, BaseDatacla
         return hash_normalized_dict(self.get_normalized())
 
     def is_initial(self) -> bool:
-        return (
-            self.last_block_number is None and self.last_block_identifier is None and
-            self.next_block_identifier is None and self.last_block_timestamp is None
-        )
+        return self.next_block_number is None and self.next_block_identifier is None
 
     @validates('blockchain state')
     def validate(self, is_initial=False):
@@ -146,35 +129,16 @@ class BlockchainState(MessagpackCompactableMixin, NormalizableMixin, BaseDatacla
 
     @validates('blockchain state attributes', is_plural_target=True)
     def validate_attributes(self, is_initial=False):
-        self.validate_last_block_number(is_initial)
-        self.validate_last_block_identifier(is_initial)
-        self.validate_last_block_timestamp(is_initial)
+        self.validate_next_block_number(is_initial)
         self.validate_next_block_identifier(is_initial)
 
     @validates('blockchain state last_block_number')
-    def validate_last_block_number(self, is_initial):
+    def validate_next_block_number(self, is_initial):
         if is_initial:
-            validate_is_none(f'Initial {self.humanized_class_name} last_block_number', self.last_block_number)
+            validate_is_none(f'Initial {self.humanized_class_name} last_block_number', self.next_block_number)
         else:
-            validate_type(f'{self.humanized_class_name} last_block_number', self.last_block_number, int)
-            validate_gte_value(f'{self.humanized_class_name} last_block_number', self.last_block_number, 0)
-
-    @validates('blockchain state last_block_identifier')
-    def validate_last_block_identifier(self, is_initial):
-        if is_initial:
-            validate_is_none(f'Initial {self.humanized_class_name} last_block_identifier', self.last_block_identifier)
-        else:
-            validate_type(f'{self.humanized_class_name} last_block_identifier', self.last_block_identifier, str)
-
-    @validates('blockchain state last_block_timestamp')
-    def validate_last_block_timestamp(self, is_initial):
-        timestamp = self.last_block_timestamp
-        if is_initial:
-            validate_is_none(f'Initial {self.humanized_class_name} last_block_timestamp', timestamp)
-        else:
-            validate_not_none(f'{self.humanized_class_name} last_block_timestamp', timestamp)
-            validate_type(f'{self.humanized_class_name} last_block_timestamp', timestamp, datetime)
-            validate_is_none(f'{self.humanized_class_name} last_block_timestamp timezone', timestamp.tzinfo)
+            validate_type(f'{self.humanized_class_name} last_block_number', self.next_block_number, int)
+            validate_gt_value(f'{self.humanized_class_name} last_block_number', self.next_block_number, 0)
 
     @validates('blockchain state next_block_identifier')
     def validate_next_block_identifier(self, is_initial):

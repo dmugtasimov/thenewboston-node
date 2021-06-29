@@ -7,9 +7,16 @@ from thenewboston_node.core.utils.types import hexstr
 class BaseMixin:
 
     def yield_blocks_till_snapshot(self, from_block_number: Optional[int] = None):
+        """Return generator of blocks traversing from `from_block_number` block (or head block if not specified)
+        to the block of the closest blockchain state (exclusive: the blockchain state block is not
+        traversed).
+        """
         raise NotImplementedError('Must be implemented in a child class')
 
-    def yield_account_states(self, from_block_number: Optional[int] = None):
+    def yield_blocks_slice(self, from_block_number: int, to_block_number: int):
+        raise NotImplementedError('Must be implemented in a child class')
+
+    def yield_account_states(self, block_number):
         raise NotImplementedError('Must be implemented in a child class')
 
     def get_account_state_attribute_value(self, account: hexstr, attribute: str, on_block_number: int):
@@ -33,12 +40,8 @@ class BaseMixin:
     def get_current_block_number(self) -> int:
         raise NotImplementedError('Must be implemented in a child class')
 
-    def get_closest_blockchain_state_snapshot(self,
-                                              excludes_block_number: Optional[int] = None
-                                              ) -> Optional[BlockchainState]:
-        """Return the latest blockchain state that does not include `excludes_block_number` (
-        head block by default thus the latest blockchain state, use -1 for getting blockchain genesis state).
-        None is returned if `excludes_block_number` block is not included in even in the earliest blockchain state
-        (this may happen for partial blockchains that do not have actual blockchain genesis state)
-        """
+    def get_first_blockchain_state(self) -> BlockchainState:
+        raise NotImplementedError('Must be implemented in a child class')
+
+    def get_blockchain_state_by_block_number(self, block_number, inclusive: bool = False) -> BlockchainState:
         raise NotImplementedError('Must be implemented in a child class')

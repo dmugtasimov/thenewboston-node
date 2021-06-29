@@ -10,11 +10,12 @@ from thenewboston_node.business_logic.models import CoinTransferSignedChangeRequ
 from thenewboston_node.core.logging import timeit, timeit_method
 
 from ...models.block import Block
+from .base import BaseMixin
 
 logger = logging.getLogger(__name__)
 
 
-class BlocksMixin:
+class BlocksMixin(BaseMixin):
 
     def persist_block(self, block: Block):
         raise NotImplementedError('Must be implemented in a child class')
@@ -104,19 +105,15 @@ class BlocksMixin:
         if last_block:
             return last_block.message.block_number + 1
 
-        account_root_file = self.get_closest_blockchain_state_snapshot()  # type: ignore
-        assert account_root_file
-        return account_root_file.get_next_block_number()
+        blockchain_state = self.get_first_blockchain_state()
+        assert blockchain_state
+        return blockchain_state.get_next_block_number()
 
     def get_current_block_number(self) -> int:
         return self.get_next_block_number() - 1
 
     @timeit(is_method=True, verbose_args=True)
-    def yield_blocks_till_snapshot(self, from_block_number: Optional[int] = None):
-        """Return generator of blocks traversing from `from_block_number` block (or head block if not specified)
-        to the block of the closest blockchain state (exclusive: the blockchain state block is not
-        traversed).
-        """
+    def yield_blocks_slice(self, from_block_number: int, to_block_number: int):
         if from_block_number is not None and from_block_number < 0:
             logger.debug('No blocks to return: from_block_number (== %s) is less than 0', from_block_number)
             return
@@ -127,18 +124,7 @@ class BlocksMixin:
             logger.debug('No blocks to return: blockchain does not contain blocks')
             return
 
-        excludes_block_number = None if from_block_number is None else (from_block_number + 1)
-        blockchain_state = self.get_closest_blockchain_state_snapshot(excludes_block_number)  # type: ignore
-        if blockchain_state is None:
-            logger.warning('Could not find account root file excluding from_block_number: %s', from_block_number)
-            return
-
-        account_root_file_block_number = blockchain_state.last_block_number
-        logger.debug('Closest account root file last block number is %s', account_root_file_block_number)
-        assert (
-            from_block_number is None or account_root_file_block_number is None or
-            account_root_file_block_number <= from_block_number
-        )
+        assert (from_block_number is None or to_block_number is None or to_block_number <= from_block_number)
 
         current_head_block = self.get_last_block()  # type: ignore
         assert current_head_block
@@ -150,10 +136,10 @@ class BlocksMixin:
         else:
             offset = current_head_block_number - from_block_number
 
-        if account_root_file_block_number is None:
+        if to_block_number is None:
             blocks_to_return = block_count - offset
         else:
-            blocks_to_return = current_head_block_number - account_root_file_block_number - offset
+            blocks_to_return = current_head_block_number - to_block_number - offset
 
         start = offset
         stop = offset + blocks_to_return
@@ -164,7 +150,7 @@ class BlocksMixin:
         block = None
         for block in islice(self.yield_blocks_reversed(), start, stop, 1):  # type: ignore
             block_number = block.message.block_number
-            assert account_root_file_block_number is None or account_root_file_block_number < block_number
+            assert to_block_number is None or to_block_number < block_number
             logger.debug('Returning block number: %s', block_number)
             yield block
 
@@ -172,10 +158,26 @@ class BlocksMixin:
         # Assert we traversed all blocks up to the account root file
         if block:
             block_number = block.message.block_number
-            if account_root_file_block_number is None:
+            if to_block_number is None:
                 assert block_number == 0
             else:
-                assert block_number == account_root_file_block_number + 1
+                assert block_number == to_block_number + 1
+
+    @timeit(is_method=True, verbose_args=True)
+    def yield_blocks_till_snapshot(self, from_block_number: Optional[int] = None):
+        if from_block_number is not None and from_block_number < 0:
+            logger.debug('No blocks to return: from_block_number (== %s) is less than 0', from_block_number)
+            return
+
+        excludes_block_number = None if from_block_number is None else (from_block_number + 1)
+        blockchain_state = self.get_closest_blockchain_state_snapshot(excludes_block_number)  # type: ignore
+        if blockchain_state is None:
+            logger.warning('Could not find account root file excluding from_block_number: %s', from_block_number)
+            return
+
+        yield from self.yield_blocks_till_block(
+            blockchain_state.last_block_number, from_block_number=from_block_number
+        )
 
     def has_blocks(self):
         # Override this method if a particular blockchain implementation can provide a high performance

@@ -22,8 +22,8 @@ def test_account_root_file_is_rotated(file_blockchain_w_memory_storage):
     new_blockchain_state = '0000000001-arf.msgpack'
 
     assert blockchain.get_blockchain_states_count() == 2
-    assert blockchain.account_root_files_storage.files.keys() == {initial_arf_filename, new_blockchain_state}
-    assert blockchain.account_root_files_storage.finalized == {initial_arf_filename, new_blockchain_state}
+    assert blockchain.blockchain_states_storage.files.keys() == {initial_arf_filename, new_blockchain_state}
+    assert blockchain.blockchain_states_storage.finalized == {initial_arf_filename, new_blockchain_state}
 
 
 def test_yield_blockchain_states_is_sorted(file_blockchain_w_memory_storage):
@@ -55,8 +55,8 @@ def test_can_get_last_blockchain_state(file_blockchain_w_memory_storage):
 
 @pytest.mark.parametrize('excludes_block_number', (-1, 0))
 def test_can_get_initial_arf_with_get_closest_arf(file_blockchain_w_memory_storage, excludes_block_number):
-    closest_arf = file_blockchain_w_memory_storage.get_closest_blockchain_state_snapshot(
-        excludes_block_number=excludes_block_number
+    closest_arf = file_blockchain_w_memory_storage.get_blockchain_state_by_block_number(
+        block_number=excludes_block_number
     )
 
     assert closest_arf.is_initial()
@@ -64,8 +64,8 @@ def test_can_get_initial_arf_with_get_closest_arf(file_blockchain_w_memory_stora
 
 @pytest.mark.parametrize('excludes_block_number', (None, 999))
 def test_closest_arf_is_last_arf(file_blockchain_w_memory_storage, excludes_block_number):
-    closest_arf = file_blockchain_w_memory_storage.get_closest_blockchain_state_snapshot(
-        excludes_block_number=excludes_block_number
+    closest_arf = file_blockchain_w_memory_storage.get_blockchain_state_by_block_number(
+        block_number=excludes_block_number
     )
 
     assert not closest_arf.is_initial()

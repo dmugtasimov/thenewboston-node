@@ -14,35 +14,35 @@ class ValidationMixin:
 
     @validates('BLOCKCHAIN')
     def validate(self, is_partial_allowed: bool = True):
-        self.validate_account_root_files(is_partial_allowed=is_partial_allowed)
+        self.validate_blockchain_states(is_partial_allowed=is_partial_allowed)
         self.validate_blocks()
 
     @validates('account root files', is_plural_target=True)
-    def validate_account_root_files(self, is_partial_allowed: bool = True):
-        account_root_files_iter = self.yield_blockchain_states()  # type: ignore
+    def validate_blockchain_states(self, is_partial_allowed: bool = True):
+        blockchain_states_iter = self.yield_blockchain_states()  # type: ignore
         with validates('number of account root files (at least one)'):
             try:
-                first_account_root_file = next(account_root_files_iter)
+                first_blockchain_state = next(blockchain_states_iter)
             except StopIteration:
                 raise ValidationError('Blockchain must contain at least one account root file')
 
-        is_initial = first_account_root_file.is_initial()
+        is_initial = first_blockchain_state.is_initial()
         if not is_partial_allowed and not is_initial:
             raise ValidationError('Blockchain must start with initial account root file')
 
         is_first = True
-        for counter, account_root_file in enumerate(chain((first_account_root_file,), account_root_files_iter)):
+        for counter, blockchain_state in enumerate(chain((first_blockchain_state,), blockchain_states_iter)):
             with validates(f'account root file number {counter}'):
-                self.validate_account_root_file(
-                    account_root_file=account_root_file, is_initial=is_initial, is_first=is_first
+                self.validate_blockchain_state(
+                    blockchain_state=blockchain_state, is_initial=is_initial, is_first=is_first
                 )
 
             is_initial = False  # only first iteration can be with initial
             is_first = False
 
-    @validates('account root file (last_block_number={account_root_file.last_block_number})')
-    def validate_account_root_file(self, *, account_root_file, is_initial=False, is_first=False):
-        account_root_file.validate(is_initial=is_initial)
+    @validates('blockchain state (next_block_number={blockchain_state.next_block_number})')
+    def validate_blockchain_state(self, *, blockchain_state, is_initial=False, is_first=False):
+        blockchain_state.validate(is_initial=is_initial)
         if is_initial:
             return
 
@@ -50,31 +50,31 @@ class ValidationMixin:
             logger.debug('First account root file is not a subject of further validations')
             return
 
-        self.validate_account_root_file_balances(account_root_file=account_root_file)
+        self.validate_account_root_file_balances(account_root_file=blockchain_state)
 
         first_block = self.get_first_block()  # type: ignore
         if not first_block:
             return
 
-        if first_block.message.block_number > account_root_file.last_block_number:
+        if first_block.message.block_number > blockchain_state.last_block_number:
             logger.debug('First block is after the account root file')
-            if first_block.message.block_number > account_root_file.last_block_number + 1:
+            if first_block.message.block_number > blockchain_state.last_block_number + 1:
                 logger.warning('Unnecessary old account root file detected')
 
             return
 
         # If account root file is after first known block then we can validate its attributes
-        account_root_file_last_block = self.get_block_by_number(account_root_file.last_block_number)  # type: ignore
+        account_root_file_last_block = self.get_block_by_number(blockchain_state.last_block_number)  # type: ignore
         with validates('account root file last_block_number'):
             if account_root_file_last_block is None:
                 raise ValidationError('Account root file last_block_number points to non-existing block')
 
         with validates('account root file last_block_identifier'):
-            if account_root_file_last_block.message.block_identifier != account_root_file.last_block_identifier:
+            if account_root_file_last_block.message.block_identifier != blockchain_state.last_block_identifier:
                 raise ValidationError('Account root file last_block_number does not match last_block_identifier')
 
         with validates('account root file next_block_identifier'):
-            if account_root_file_last_block.hash != account_root_file.next_block_identifier:
+            if account_root_file_last_block.hash != blockchain_state.next_block_identifier:
                 raise ValidationError(
                     'Account root file next_block_identifier does not match last_block_number message hash'
                 )

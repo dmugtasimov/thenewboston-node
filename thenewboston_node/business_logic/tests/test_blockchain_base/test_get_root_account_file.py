@@ -45,21 +45,21 @@ def test_first_account_root_file_is_none(blockchain_base):
     assert first_arf is None
 
 
-def test_get_closest_blockchain_state_snapshot_validates_excludes_block_number(blockchain_base):
+def test_get_blockchain_state_by_block_number(blockchain_base):
     with pytest.raises(ValueError):
-        blockchain_base.get_closest_blockchain_state_snapshot(excludes_block_number=-2)
+        blockchain_base.get_blockchain_state_by_block_number(block_number=-2)
 
 
 def test_blockchain_genesis_state_not_found(blockchain_base):
     with patch_blockchain_states(blockchain_base, []):
-        initial_arf = blockchain_base.get_closest_blockchain_state_snapshot(excludes_block_number=-1)
+        initial_arf = blockchain_base.get_blockchain_state_by_block_number(block_number=-1)
 
     assert initial_arf is None
 
 
 def test_can_get_blockchain_genesis_state(blockchain_base, blockchain_genesis_state, blockchain_state_10):
     with patch_blockchain_states(blockchain_base, [blockchain_genesis_state, blockchain_state_10]):
-        retrieved_arf = blockchain_base.get_closest_blockchain_state_snapshot(excludes_block_number=-1)
+        retrieved_arf = blockchain_base.get_blockchain_state_by_block_number(block_number=-1)
 
     assert retrieved_arf == blockchain_genesis_state
 
@@ -69,9 +69,7 @@ def test_can_exclude_last_from_closest_account_root_files(
     blockchain_base, excludes_block_number, blockchain_state_10, blockchain_state_20
 ):
     with patch_blockchain_states(blockchain_base, [blockchain_state_10, blockchain_state_20]):
-        retrieved_arf = blockchain_base.get_closest_blockchain_state_snapshot(
-            excludes_block_number=excludes_block_number
-        )
+        retrieved_arf = blockchain_base.get_blockchain_state_by_block_number(block_number=excludes_block_number)
 
     assert retrieved_arf == blockchain_state_10
 
@@ -80,7 +78,7 @@ def test_exclude_non_existing_account_root_file_from_closest(
     blockchain_base, blockchain_state_10, blockchain_state_20
 ):
     with patch_blockchain_states(blockchain_base, [blockchain_state_10, blockchain_state_20]):
-        retrieved_arf = blockchain_base.get_closest_blockchain_state_snapshot(excludes_block_number=21)
+        retrieved_arf = blockchain_base.get_blockchain_state_by_block_number(block_number=21)
 
     assert retrieved_arf == blockchain_state_20
 
@@ -90,8 +88,6 @@ def test_closest_account_root_file_not_found(
     blockchain_base, excludes_block_number, blockchain_state_10, blockchain_state_20
 ):
     with patch_blockchain_states(blockchain_base, [blockchain_state_10, blockchain_state_20]):
-        retrieved_arf = blockchain_base.get_closest_blockchain_state_snapshot(
-            excludes_block_number=excludes_block_number
-        )
+        retrieved_arf = blockchain_base.get_blockchain_state_by_block_number(block_number=excludes_block_number)
 
     assert retrieved_arf is None

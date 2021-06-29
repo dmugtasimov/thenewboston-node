@@ -28,15 +28,11 @@ class AccountStateMixin(BaseMixin):
         for new_account in new_accounts:
             yield new_account
 
-    def yield_account_states(self, from_block_number: Optional[int] = None):
-        # TODO(dmu) HIGH: Reuse this method where
-        excludes_block_number = None if from_block_number is None else from_block_number + 1
-        blockchain_state = self.get_closest_blockchain_state_snapshot(excludes_block_number=excludes_block_number)
-        assert blockchain_state
-
-        # TODO(dmu) CRITICAL: yield blocks it blockchain_state.last_block number to prevent race conditions
-        for block in self.yield_blocks_till_snapshot(from_block_number=from_block_number):
-            yield from block.message.updated_account_states.items()
+    def yield_account_states(self, block_number):
+        # TODO(dmu) HIGH: Reuse this method where possible
+        blockchain_state = self.get_blockchain_state_by_block_number(block_number)
+        for block in self.yield_blocks_slice(block_number, blockchain_state.last_block_number or 0):
+            yield from block.yield_account_states()
 
         yield from blockchain_state.yield_account_states()
 
@@ -50,9 +46,7 @@ class AccountStateMixin(BaseMixin):
         if account_state:
             return account_state.get_attribute_value(attribute, account)
 
-        blockchain_state = self.get_closest_blockchain_state_snapshot(on_block_number + 1)
-        assert blockchain_state
-
+        blockchain_state = self.get_blockchain_state_by_block_number(on_block_number, inclusive=True)
         return blockchain_state.get_account_state_attribute_value(account, attribute)
 
     def get_account_balance(self, account: hexstr, on_block_number: int) -> int:
@@ -101,10 +95,7 @@ class AccountStateMixin(BaseMixin):
         if block_number < 0:
             raise ValueError('block_number must be greater or equal to 0')
 
-        blockchain_state = self.get_closest_blockchain_state_snapshot(block_number)
-        if blockchain_state is None:
-            logger.warning('Block number %s is beyond known account root files', block_number)
-            return None
+        blockchain_state = self.get_blockchain_state_by_block_number(block_number)
 
         if block_number == 0:
             assert blockchain_state.is_initial()

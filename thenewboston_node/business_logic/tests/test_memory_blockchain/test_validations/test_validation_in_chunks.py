@@ -10,7 +10,7 @@ from thenewboston_node.core.utils.pytest import skip_slow
 @pytest.mark.usefixtures('forced_memory_blockchain')
 def test_can_validate_blockchain_in_chunks(large_blockchain):
     blockchain = large_blockchain
-    blockchain.validate_account_root_files()
+    blockchain.validate_blockchain_states()
 
     CHUNK_SIZE = 20
     block_count = large_blockchain.get_block_count()
@@ -22,7 +22,7 @@ def test_can_validate_blockchain_in_chunks(large_blockchain):
 @pytest.mark.usefixtures('forced_file_blockchain')
 def test_can_validate_blockchain_in_chunks_for_file_blockchain(large_blockchain):
     blockchain = large_blockchain
-    blockchain.validate_account_root_files()
+    blockchain.validate_blockchain_states()
 
     CHUNK_SIZE = 20
     block_count = large_blockchain.get_block_count()
