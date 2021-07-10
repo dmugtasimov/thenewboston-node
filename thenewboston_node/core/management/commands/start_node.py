@@ -12,6 +12,7 @@ from thenewboston_node.business_logic.models import (
 )
 from thenewboston_node.business_logic.node import derive_public_key, get_node_signing_key
 from thenewboston_node.business_logic.utils.blockchain_state import make_blockchain_state_from_account_root_file
+from thenewboston_node.core.clients.node import NodeClient
 
 logger = logging.getLogger(__name__)
 
@@ -104,5 +105,21 @@ class Command(BaseCommand):
             self_declare_node(blockchain, network_addresses)
             self_declare_as_primary_validator(blockchain, begin_block_number)
             return
+
+        logger.debug('Blockchain has other nodes, let us get the latest blockchain')
+        node_client = NodeClient.get_instance()
+        most_up_to_date_node = None
+        max_last_block_number = -1
+        for node in blockchain.yield_nodes():
+            meta = node_client.get_latest_blockchain_state_meta_by_network_addresses(node.network_addresses)
+            last_block_number = meta['last_block_number']
+            if last_block_number > max_last_block_number:
+                max_last_block_number = last_block_number
+                most_up_to_date_node = node
+
+        if max_last_block_number > blockchain.get_last_block_number():
+            # TODO(dmu) CRITICAL: Implement blockchain state download here
+            print(most_up_to_date_node)
+            raise NotImplementedError('Implement blockchain state download')
 
         raise NotImplementedError('Blockchain has nodes workflow is not implemented yet')

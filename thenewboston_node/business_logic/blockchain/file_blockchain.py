@@ -62,7 +62,6 @@ def make_blockchain_state_filename(last_block_number=None):
 def get_blockchain_state_filename_meta(filename):
     match = BLOCKCHAIN_STATE_FILENAME_RE.match(filename)
     if match:
-        # TODO(dmu) CRITICAL: Support last_block_number == None
         last_block_number_str = match.group('last_block_number')
 
         if last_block_number_str.endswith(LAST_BLOCK_NUMBER_NONE_SENTINEL):
